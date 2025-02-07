@@ -1,12 +1,10 @@
-import React from "react";
-import { TextField, InputAdornment, Button, Typography } from "@mui/material";
-import { Box } from "@mui/system";
+import React, { useState, useEffect } from "react";
+import { TextField, InputAdornment, Button, Typography, Container, Paper, Switch, Box } from "@mui/material";
 import SearchIcon from "../assets/images/searchIcon.svg";
 import { styled } from "@mui/system";
-import Switch from "@mui/material/Switch";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import EmojiObjectsRoundedIcon from "@mui/icons-material/EmojiObjectsRounded";
-import { useState } from "react";
+import axios from "axios";
+import { motion } from "framer-motion";
+import {io} from "socket.io-client"
 
 const IOSSwitch = styled((props) => (
   <Switch focusVisibleClassName=".Mui-focusVisible" disableRipple {...props} />
@@ -25,9 +23,6 @@ const IOSSwitch = styled((props) => (
         backgroundColor: "#65C466",
         opacity: 1,
         border: 0,
-        ...theme.applyStyles("dark", {
-          backgroundColor: "#2ECA45",
-        }),
       },
       "&.Mui-disabled + .MuiSwitch-track": {
         opacity: 0.5,
@@ -37,12 +32,8 @@ const IOSSwitch = styled((props) => (
       color: "#33cf4d",
       border: "6px solid #fff",
     },
-
     "&.Mui-disabled + .MuiSwitch-track": {
       opacity: 0.7,
-      ...theme.applyStyles("dark", {
-        opacity: 0.3,
-      }),
     },
   },
   "& .MuiSwitch-thumb": {
@@ -54,85 +45,186 @@ const IOSSwitch = styled((props) => (
     borderRadius: 26 / 2,
     backgroundColor: "#E9E9EA",
     opacity: 1,
-    ...theme.applyStyles("dark", {
-      backgroundColor: "#39393D",
-    }),
   },
 }));
 
 const MainPage = () => {
   const [switchbtn, setSwitchbtn] = useState(false);
+
+  useEffect(() => {
+    // Connect to the Socket.IO server
+    const socket = io("https://lk-ims-backend-production.up.railway.app");
+
+    // Listen for updates from the backend
+    socket.on("led-state-update", (payload) => {
+        console.log("Received state update:", payload);
+        setSwitchbtn(payload.toLowerCase() === "on");
+    });
+
+    // Clean up the socket connection on unmount
+    return () => {
+        socket.disconnect();
+    };
+}, []);
+
+
+  const onBtnClick = async (changeValue) => {
+    try {
+      const response = await axios.post(`https://lk-ims-backend-production.up.railway.app/api/mqtt/publish-mqtt`, {
+        payload: changeValue,
+      });
+      if (response.status === 200) {
+        console.log("Successfully toggled switch.");
+      }
+    } catch (error) {
+      window.alert("Error in turning on the bulb");
+      setSwitchbtn(false);
+    }
+  };
+
   return (
-    <Box>
-      <Box
+    <Container maxWidth="sm">
+      <Paper
+        elevation={6}
         sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          m: 2,
-          flexDirection: "row",
-          gap: 2,
+          padding: 4,
+          marginTop: 4,
+          borderRadius: 3,
+          background: "linear-gradient(135deg, #f5f7fa, #c3cfe2)",
         }}
       >
-        <TextField
-          sx={{ width: "60%" }}
-          id="outlined-start-adornment"
-          // onChange={(e) => {
-          //   setFilters({ ...filters, search: e.target.value });
-          // }}
-          placeholder="Enter Id..."
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <img src={SearchIcon} />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-        <Button sx={{ height: "55px", width: "10%" }} variant="contained">
-          Search
-        </Button>
-      </Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-          gap: 3,
-        }}
-      >
-        {switchbtn ? (
-          <img src="https://www.w3schools.com/js/pic_bulbon.gif" />
-        ) : (
-          <img src="https://www.w3schools.com/js/pic_bulboff.gif " />
-        )}
         <Box
+          component={motion.div}
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
           sx={{
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
             flexDirection: "column",
+            gap: 2,
           }}
         >
-          {" "}
-          <Typography variant="body" sx={{ color: "black", fontWeight: "bold" }}>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: "bold",
+              marginBottom: 2,
+              color: "#333",
+            }}
+          >
+            Store Control Panel
+          </Typography>
+          <TextField
+            sx={{ width: "100%" }}
+            id="outlined-start-adornment"
+            placeholder="Enter Store Id"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <img src={SearchIcon} alt="Search Icon" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Button
+            sx={{
+              height: "55px",
+              width: "100%",
+              background: "#333",
+              color: "#fff",
+              "&:hover": {
+                background: "#555",
+              },
+              transition: "background 0.3s",
+            }}
+            variant="contained"
+          >
+            Search
+          </Button>
+        </Box>
+        <Box
+          component={motion.div}
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "column",
+            gap: 3,
+            marginTop: 4,
+          }}
+        >
+          {switchbtn ? (
+            <motion.img
+              src="https://www.w3schools.com/js/pic_bulbon.gif"
+              alt="Bulb On"
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.3 }}
+            />
+          ) : (
+            <motion.img
+              src="https://www.w3schools.com/js/pic_bulboff.gif"
+              alt="Bulb Off"
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.3 }}
+            />
+          )}
+          <Typography
+            variant="body1"
+            sx={{
+              color: "#333",
+              fontWeight: "bold",
+            }}
+          >
             {switchbtn ? "ON" : "OFF"}
           </Typography>
-          <FormControlLabel
-            value={switchbtn}
-            sx={{ marginLeft: "10px" }}
-            onChange={(e, changeValue) => {
-              setSwitchbtn(changeValue);
-            }}
-            control={<IOSSwitch />}
-            label=""
-          />{" "}
+          <Box mt={4} display="flex" justifyContent="center" flexDirection="row" width="100%" gap={2}>
+            <Button
+              variant={switchbtn ? "contained" : "outlined"}
+              sx={{
+                background: switchbtn ? "#333" : "transparent",
+                color: switchbtn ? "#fff" : "#333",
+                borderColor: "#333",
+                "&:hover": {
+                  background: switchbtn ? "#555" : "#f0f0f0",
+                },
+                transition: "background 0.3s",
+              }}
+              onClick={() => {
+                onBtnClick(true);
+                setSwitchbtn(true);
+              }}
+            >
+              ON
+            </Button>
+            <Button
+              variant={!switchbtn ? "contained" : "outlined"}
+              sx={{
+                background: !switchbtn ? "#333" : "transparent",
+                color: !switchbtn ? "#fff" : "#333",
+                borderColor: "#333",
+                "&:hover": {
+                  background: !switchbtn ? "#555" : "#f0f0f0",
+                },
+                transition: "background 0.3s",
+              }}
+              onClick={() => {
+                onBtnClick(false);
+                setSwitchbtn(false);
+              }}
+            >
+              OFF
+            </Button>
+          </Box>
         </Box>
-      </Box>
-    </Box>
+      </Paper>
+    </Container>
   );
 };
 
